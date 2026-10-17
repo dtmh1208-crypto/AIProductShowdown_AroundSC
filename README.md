@@ -11,13 +11,58 @@
 
 ---
 
+## 🛠️ Installation & Getting Started
+
+### Prerequisites
+- **Node.js**: v18.0.0 or higher (v20+ recommended)
+- **npm** (comes with Node.js) or **pnpm** / **yarn**
+
+### Quickstart
+
+1. **Clone the repository**:
+   ```bash
+   git clone https://github.com/dtmh1208-crypto/AIProductShowdown_AroundSC.git
+   cd AIProductShowdown_AroundSC
+   ```
+
+2. **Install dependencies**:
+   ```bash
+   npm install
+   ```
+
+3. **Start the local development server**:
+   ```bash
+   npm run dev
+   ```
+
+4. **Open in your browser**:
+   Navigate to:
+   ```
+   http://localhost:5173
+   ```
+
+### Other Helpful Commands
+
+- **Build for production**:
+  ```bash
+  npm run build
+  ```
+  Generates an optimized static bundle in the `dist/` directory.
+
+- **Preview the production build locally**:
+  ```bash
+  npm run preview
+  ```
+
+---
+
 ## 🚀 Key Features
 
-1. **Interactive Campus Radar (MapLibre GL)**:
+1. **Interactive Campus Radar (MapLibre GL & CARTO)**:
    - High-contrast, dark-mode vector map centered on USC University Park Campus (UPC).
    - Real campus buildings: Ronald Tutor Campus Center (TCC), Leavey Library (LVL), Fertitta Hall (JFF), Salvatori CS Center (SAL), Galen Center, and more.
    - Live pulsating pins for events happening **right now**.
-   - Zero proprietary API keys needed—runs reliably offline or in live demos.
+   - Powered by CARTO Basemaps Vector Dark Matter styling.
 
 2. **Switchable Map View & List View**:
    - Single-click toggle between the geospatial campus map and a structured 2-column card directory.
