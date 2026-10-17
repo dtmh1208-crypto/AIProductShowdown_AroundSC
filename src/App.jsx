@@ -9,6 +9,7 @@ import { EventDetailModal } from './components/EventDetailModal';
 import { RAW_EVENTS } from './data/eventsData';
 import { MOCK_STUDENT_SCHEDULE } from './data/mockSchedule';
 import { checkCalendarConflict, isEventLive, isEventToday } from './utils/calendar';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { Check, Sparkles, MapPin, Calendar, ExternalLink } from 'lucide-react';
 
 export default function App() {
@@ -208,14 +209,19 @@ export default function App() {
                   Click pins to view details & RSVP
                 </span>
               </div>
-              <MapView
-                events={filteredEvents}
-                schedule={MOCK_STUDENT_SCHEDULE}
-                rsvpIds={rsvpIds}
-                onRsvpClick={handleRsvpClick}
-                onSelectEvent={(evt) => setSelectedDetailEvent(evt)}
-                checkConflict={checkCalendarConflict}
-              />
+              <ErrorBoundary
+                onSwitchToList={() => setViewMode('list')}
+                customMessage="The campus map graphics encountered an issue on your device. You can view in List View or retry."
+              >
+                <MapView
+                  events={filteredEvents}
+                  schedule={MOCK_STUDENT_SCHEDULE}
+                  rsvpIds={rsvpIds}
+                  onRsvpClick={handleRsvpClick}
+                  onSelectEvent={(evt) => setSelectedDetailEvent(evt)}
+                  checkConflict={checkCalendarConflict}
+                />
+              </ErrorBoundary>
             </div>
           ) : (
             <div className="space-y-4">
