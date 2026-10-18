@@ -1,27 +1,10 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import maplibregl from 'maplibre-gl';
 import { isEventLive } from '../utils/calendar';
 import { CAMPUS_LOCATIONS } from '../data/campusLocations';
 import { MapPin, Navigation, ZoomIn, ZoomOut, RotateCcw, AlertCircle, Compass, Map as MapIcon } from 'lucide-react';
 import { EventCard } from './EventCard';
-
-// USC University Park Campus (UPC) Center
-const USC_CENTER = [-118.2851, 34.0224];
-const DEFAULT_ZOOM = 15.4;
-
-// Bounding box for 2D Campus Radar Projection
-const MIN_LNG = -118.2930;
-const MAX_LNG = -118.2770;
-const MIN_LAT = 34.0160;
-const MAX_LAT = 34.0270;
-const CANVAS_W = 1000;
-const CANVAS_H = 620;
-
-function projectCoords(lng, lat) {
-  const x = ((lng - MIN_LNG) / (MAX_LNG - MIN_LNG)) * CANVAS_W;
-  const y = ((MAX_LAT - lat) / (MAX_LAT - MIN_LAT)) * CANVAS_H;
-  return [x, y];
-}
+import { USC_CENTER, DEFAULT_ZOOM, CANVAS_W, CANVAS_H, projectCoords, layoutMapEvents, nextZoom, isActivationKey, startVectorMap } from '../utils/map';
 
 export const MapView = ({
   events,
@@ -34,6 +17,9 @@ export const MapView = ({
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
   const markersRef = useRef([]);
+  const mapReadyRef = useRef(false);
+  const markers = useMemo(() => layoutMapEvents(events), [events]);
+  const [mapError, setMapError] = useState(null);
   const [selectedPinEvent, setSelectedPinEvent] = useState(null);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [useFallback2D, setUseFallback2D] = useState(true);
@@ -42,71 +28,32 @@ export const MapView = ({
   const isDragging2D = useRef(false);
   const dragStart2D = useRef({ x: 0, y: 0 });
 
-  // Initialize MapLibre with safe WebGL detection
   useEffect(() => {
-    if (!mapContainerRef.current) return;
+    setSelectedPinEvent((selected) => selected && events.some((event) => event.id === selected.id) ? selected : null);
+  }, [events]);
 
-    // Check if MapLibre GL is supported in current environment
-    const isSupported = (function () {
-      try {
-        return typeof maplibregl.supported === 'function'
-          ? maplibregl.supported({ failIfMajorPerformanceCaveat: false })
-          : true;
-      } catch (e) {
-        return false;
-      }
-    })();
-
-    if (!isSupported) {
-      console.warn('MapLibre GL / WebGL not supported. Activating 2D Campus Radar fallback.');
-      setUseFallback2D(true);
-      return;
-    }
-
-    const CARTO_API_KEY = 'cb1_4nhd_1_37985019de45fbf289d05de7';
-
-    try {
-      const map = new maplibregl.Map({
-        container: mapContainerRef.current,
-        style: `https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json?key=${CARTO_API_KEY}`,
-        center: USC_CENTER,
-        zoom: DEFAULT_ZOOM,
-        pitch: 35,
-        bearing: -10,
-        attributionControl: false
-      });
-
-      map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right');
-
-      map.on('load', () => {
-        setMapLoaded(true);
-      });
-
-      map.on('error', (e) => {
-        console.warn('MapLibre encountered an error, falling back to 2D Radar:', e);
-        if (!mapLoaded) {
-          setUseFallback2D(true);
-        }
-      });
-
-      mapRef.current = map;
-
-      return () => {
-        try {
-          map.remove();
-        } catch {
-          // Ignore teardown errors
-        }
-      };
-    } catch (err) {
-      console.warn('Failed to initialize WebGL MapLibre instance. Falling back to 2D Campus Radar.', err);
-      setUseFallback2D(true);
-    }
-  }, []);
+  // Create the renderer only after its visible container exists. Default radar needs no tiles.
+  useEffect(() => {
+    if (useFallback2D || !mapContainerRef.current) return;
+    setMapError(null);
+    setMapLoaded(false);
+    mapReadyRef.current = false;
+    const session = startVectorMap({ engine: maplibregl, container: mapContainerRef.current,
+      onReady: () => { mapReadyRef.current = true; setMapLoaded(true); },
+      onUnavailable: (message) => { setMapError(message); setUseFallback2D(true); },
+    });
+    mapRef.current = session.map;
+    return () => {
+      mapReadyRef.current = false;
+      session.dispose();
+      mapRef.current = null;
+      markersRef.current = [];
+    };
+  }, [useFallback2D]);
 
   // Update MapLibre Markers when not in 2D fallback mode
   useEffect(() => {
-    if (useFallback2D || !mapRef.current || !mapLoaded) return;
+    if (useFallback2D || !mapRef.current || !mapLoaded || !mapReadyRef.current) return;
 
     // Remove existing markers
     markersRef.current.forEach((m) => {
@@ -118,27 +65,19 @@ export const MapView = ({
     });
     markersRef.current = [];
 
-    const coordUsage = {};
-
-    events.forEach((event) => {
-      const coords = event.location.coordinates;
-      const key = `${coords[0]},${coords[1]}`;
-      const count = coordUsage[key] || 0;
-      coordUsage[key] = count + 1;
-
-      const offsetLng = coords[0] + (count % 3 - 1) * 0.00035;
-      const offsetLat = coords[1] + Math.floor(count / 3) * 0.00035;
-
+    markers.forEach(({ event, coordinates: [offsetLng, offsetLat], offset }) => {
       const isLive = isEventLive(event.startTime, event.endTime);
       const conflict = checkConflict(event, schedule);
       const isRsvpd = rsvpIds.includes(event.id);
 
-      const el = document.createElement('div');
-      el.className = 'cursor-pointer transition-transform duration-200 hover:scale-125 select-none';
+      const el = document.createElement('button');
+      el.type = 'button';
+      el.setAttribute('aria-label', `View event: ${event.title}`);
+      el.className = 'map-event-marker cursor-pointer select-none';
 
       if (isLive) {
         el.innerHTML = `
-          <div class="relative flex items-center justify-center">
+          <div class="map-pin-visual relative flex items-center justify-center">
             <span class="absolute w-8 h-8 rounded-full bg-usc-gold/40 animate-ping"></span>
             <span class="relative flex items-center justify-center w-7 h-7 rounded-full bg-usc-cardinal border-2 border-usc-gold text-zinc-100 shadow-lg text-xs font-bold">
               ⚡
@@ -147,25 +86,25 @@ export const MapView = ({
         `;
       } else if (conflict.hasConflict) {
         el.innerHTML = `
-          <div class="relative flex items-center justify-center">
-            <span class="relative flex items-center justify-center w-6 h-6 rounded-full bg-rose-600 border border-zinc-100 text-zinc-100 shadow-md text-[10px] font-bold">
+          <div class="map-pin-visual relative flex items-center justify-center">
+            <span class="relative flex items-center justify-center w-6 h-6 rounded-full bg-usc-cardinal border border-zinc-100 text-zinc-100 shadow-md text-[10px] font-bold">
               !
             </span>
           </div>
         `;
       } else if (isRsvpd) {
         el.innerHTML = `
-          <div class="relative flex items-center justify-center">
-            <span class="relative flex items-center justify-center w-6 h-6 rounded-full bg-emerald-600 border border-emerald-300 text-zinc-100 shadow-md text-xs font-bold">
+          <div class="map-pin-visual relative flex items-center justify-center">
+            <span class="relative flex items-center justify-center w-6 h-6 rounded-full bg-usc-cardinal border border-usc-gold text-zinc-100 shadow-md text-xs font-bold">
               ✓
             </span>
           </div>
         `;
       } else {
         el.innerHTML = `
-          <div class="relative flex items-center justify-center">
+          <div class="map-pin-visual relative flex items-center justify-center">
             <span class="relative flex items-center justify-center w-6 h-6 rounded-full bg-zinc-900 border-2 border-usc-gold text-usc-gold shadow-md text-[11px] font-semibold">
-              ${event.location.code.slice(0, 3)}
+              ${event.location.code.slice(0, 3) || '•'}
             </span>
           </div>
         `;
@@ -182,7 +121,7 @@ export const MapView = ({
       });
 
       try {
-        const marker = new maplibregl.Marker({ element: el })
+        const marker = new maplibregl.Marker({ element: el, offset })
           .setLngLat([offsetLng, offsetLat])
           .addTo(mapRef.current);
 
@@ -191,7 +130,7 @@ export const MapView = ({
         console.warn('Marker addition error:', markerErr);
       }
     });
-  }, [events, schedule, rsvpIds, mapLoaded, useFallback2D]);
+  }, [markers, schedule, rsvpIds, mapLoaded, useFallback2D, checkConflict]);
 
   const resetCampusView = () => {
     if (useFallback2D) {
@@ -212,15 +151,17 @@ export const MapView = ({
 
   const handleZoom = (delta) => {
     if (useFallback2D) {
-      setZoomLevel2D((prev) => Math.min(2.5, Math.max(0.7, prev + delta)));
+      setZoomLevel2D((prev) => nextZoom(prev, delta));
     } else {
       if (delta > 0) mapRef.current?.zoomIn();
       else mapRef.current?.zoomOut();
     }
   };
 
-  // 2D Mouse Drag Handlers
+  // Pointer input supports both mouse and touch without changing the event engine.
   const handleMouseDown2D = (e) => {
+    if (e.button !== 0 && e.pointerType !== 'touch') return;
+    e.currentTarget.setPointerCapture?.(e.pointerId);
     isDragging2D.current = true;
     dragStart2D.current = { x: e.clientX - pan2D.x, y: e.clientY - pan2D.y };
   };
@@ -249,10 +190,11 @@ export const MapView = ({
       {useFallback2D && (
         <div
           className="w-full h-full relative bg-[#09090b] cursor-grab active:cursor-grabbing overflow-hidden"
-          onMouseDown={handleMouseDown2D}
-          onMouseMove={handleMouseMove2D}
-          onMouseUp={handleMouseUp2D}
-          onMouseLeave={handleMouseUp2D}
+          onPointerDown={handleMouseDown2D}
+          onPointerMove={handleMouseMove2D}
+          onPointerUp={handleMouseUp2D}
+          onPointerCancel={handleMouseUp2D}
+          style={{ touchAction: 'none' }}
         >
           <svg
             className="w-full h-full"
@@ -369,11 +311,8 @@ export const MapView = ({
             })}
 
             {/* Dynamic Event Markers Projected onto 2D Campus Radar */}
-            {events.map((event) => {
-              const [rawX, rawY] = projectCoords(
-                event.location.coordinates[0],
-                event.location.coordinates[1]
-              );
+            {markers.map(({ event, coordinates, offset }) => {
+              const [rawX, rawY] = projectCoords(...coordinates);
               const isLive = isEventLive(event.startTime, event.endTime);
               const conflict = checkConflict(event, schedule);
               const isRsvpd = rsvpIds.includes(event.id);
@@ -381,13 +320,19 @@ export const MapView = ({
               return (
                 <g
                   key={event.id}
-                  transform={`translate(${rawX}, ${rawY})`}
-                  className="cursor-pointer transition-transform duration-200 hover:scale-125"
+                  transform={`translate(${rawX + offset[0]}, ${rawY + offset[1]})`}
+                  className="map-event-marker cursor-pointer"
+                  role="button" tabIndex={0} aria-label={`View event: ${event.title}`}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onKeyDown={(e) => {
+                    if (isActivationKey(e.key)) { e.preventDefault(); e.stopPropagation(); setSelectedPinEvent(event); }
+                  }}
                   onClick={(e) => {
                     e.stopPropagation();
                     setSelectedPinEvent(event);
                   }}
                 >
+                  <g className="map-pin-visual">
                   {isLive ? (
                     /* Live pulsating pin */
                     <g>
@@ -420,7 +365,7 @@ export const MapView = ({
                   ) : conflict.hasConflict ? (
                     /* Conflict pin */
                     <g>
-                      <circle r="12" fill="#e11d48" stroke="#f4f4f5" strokeWidth="1.5" />
+                      <circle r="12" fill="#990000" stroke="#f4f4f5" strokeWidth="1.5" />
                       <text
                         x="0"
                         y="4"
@@ -435,7 +380,7 @@ export const MapView = ({
                   ) : isRsvpd ? (
                     /* RSVP'd pin */
                     <g>
-                      <circle r="12" fill="#059669" stroke="#6ee7b7" strokeWidth="1.5" />
+                      <circle r="12" fill="#990000" stroke="#FFCC00" strokeWidth="1.5" />
                       <text
                         x="0"
                         y="4"
@@ -459,10 +404,11 @@ export const MapView = ({
                         fontSize="9"
                         fontWeight="bold"
                       >
-                        {event.location.code.slice(0, 3)}
+                        {event.location.code.slice(0, 3) || '•'}
                       </text>
                     </g>
                   )}
+                  </g>
                 </g>
               );
             })}
@@ -470,6 +416,8 @@ export const MapView = ({
         </div>
       )}
 
+      {mapError && <p role="status" className="absolute bottom-3 left-3 right-3 sm:right-auto rounded-lg bg-zinc-950/95 border border-usc-gold/40 px-3 py-2 text-xs text-usc-gold pointer-events-none">{mapError}</p>}
+      {!useFallback2D && !mapLoaded && <p role="status" className="absolute bottom-3 left-3 bg-zinc-950 px-3 py-2 text-sm text-zinc-100">Loading vector map…</p>}
       {/* Floating Map Controls */}
       <div className="absolute top-4 right-4 z-10 flex flex-col gap-2">
         <button
@@ -513,7 +461,7 @@ export const MapView = ({
           Live Now
         </span>
         <span className="flex items-center gap-1.5 text-zinc-300">
-          <span className="w-2.5 h-2.5 rounded-full bg-rose-600"></span>
+          <span className="w-2.5 h-2.5 rounded-full bg-usc-cardinal"></span>
           Conflict
         </span>
         <span className="flex items-center gap-1.5 text-zinc-300">
@@ -544,6 +492,7 @@ export const MapView = ({
         <div className="absolute bottom-4 left-4 right-4 sm:left-auto sm:right-4 sm:max-w-md z-20 transition-all duration-300">
           <div className="relative">
             <button
+              aria-label="Close selected event"
               onClick={() => setSelectedPinEvent(null)}
               className="absolute -top-3 -right-2 z-30 w-7 h-7 rounded-full bg-zinc-800 hover:bg-zinc-700 border border-zinc-600 text-zinc-300 flex items-center justify-center text-xs font-bold shadow-lg"
             >

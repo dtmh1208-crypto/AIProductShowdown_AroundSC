@@ -4,6 +4,7 @@ import { Sparkles, CalendarX } from 'lucide-react';
 
 export const ListView = ({
   events,
+  discoveryActive = false,
   schedule,
   rsvpIds,
   onRsvpClick,
@@ -16,7 +17,9 @@ export const ListView = ({
         <CalendarX className="w-12 h-12 text-zinc-600 mx-auto mb-3" />
         <h3 className="text-xl font-semibold text-zinc-100 mb-1">No matching events found</h3>
         <p className="text-sm font-normal text-zinc-400">
-          Try loosening your search filters, category selection, or turn off the conflict filter.
+          {discoveryActive
+            ? 'Review the Ask AroundSC interpretation above. Try another interest, date, or supported building, or review your existing filters.'
+            : 'Try loosening your search filters, category selection, or turn off the conflict filter.'}
         </p>
       </div>
     );
