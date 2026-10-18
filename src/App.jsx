@@ -7,9 +7,15 @@ import { ConflictModal } from './components/ConflictModal';
 import { ScheduleModal } from './components/ScheduleModal';
 import { EventDetailModal } from './components/EventDetailModal';
 import { RAW_EVENTS } from './data/eventsData';
+import { VERIFIED_EVENT_RECORDS } from './data/verifiedEvents';
+import { buildShowcaseCollection } from './utils/eventAdapter';
+import { loadShowcaseRsvps, SHOWCASE_RSVP_KEY } from './utils/rsvpStorage';
 import { MOCK_STUDENT_SCHEDULE } from './data/mockSchedule';
 import { checkCalendarConflict, isEventLive, isEventToday } from './utils/calendar';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { AskAroundSC } from './components/AskAroundSC';
+import { parseDiscoveryRequest } from './utils/discoveryParser';
+import { matchesDiscovery } from './utils/discoveryMatching';
 import { Check, Sparkles, MapPin, Calendar, ExternalLink } from 'lucide-react';
 
 export default function App() {
@@ -23,22 +29,24 @@ export default function App() {
   const [freeFoodOnly, setFreeFoodOnly] = useState(false);
   const [hideConflicts, setHideConflicts] = useState(false);
 
-  // RSVP Persistence
-  const [rsvpIds, setRsvpIds] = useState(() => {
-    try {
-      const saved = localStorage.getItem('aroundsc_rsvps');
-      return saved ? JSON.parse(saved) : ['evt-01']; // seed 1 RSVP for demo warmth
-    } catch {
-      return ['evt-01'];
-    }
-  });
+  const [discovery, setDiscovery] = useState(null);
+  const [ignoreUnknownLocations, setIgnoreUnknownLocations] = useState(false);
 
+  const [now, setNow] = useState(() => new Date());
   useEffect(() => {
-    try {
-      localStorage.setItem('aroundsc_rsvps', JSON.stringify(rsvpIds));
-    } catch (e) {
-      console.error(e);
-    }
+    const timer = setInterval(() => setNow(new Date()), 30000);
+    return () => clearInterval(timer);
+  }, []);
+  const collection = useMemo(() => buildShowcaseCollection(RAW_EVENTS, VERIFIED_EVENT_RECORDS, { now }), [now]);
+  const activeEvents = collection.events;
+
+  const [rsvpIds, setRsvpIds] = useState(() => {
+    try { return loadShowcaseRsvps(localStorage, collection.aliases); }
+    catch { return loadShowcaseRsvps(null, collection.aliases); }
+  });
+  useEffect(() => {
+    try { localStorage.setItem(SHOWCASE_RSVP_KEY, JSON.stringify(rsvpIds)); }
+    catch (error) { console.error(error); }
   }, [rsvpIds]);
 
   // Modal States
@@ -57,12 +65,13 @@ export default function App() {
 
   // Compute live events count
   const liveCount = useMemo(() => {
-    return RAW_EVENTS.filter((e) => isEventLive(e.startTime, e.endTime)).length;
-  }, []);
+    return activeEvents.filter((e) => isEventLive(e.startTime, e.endTime, now)).length;
+  }, [activeEvents, now]);
 
   // Filter Events Pipeline
   const filteredEvents = useMemo(() => {
-    return RAW_EVENTS.filter((event) => {
+    return activeEvents.filter((event) => {
+      if (!matchesDiscovery(event, discovery, { ignoreLocations: ignoreUnknownLocations })) return false;
       // 1. Text Search Query
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase();
@@ -100,14 +109,14 @@ export default function App() {
 
       // 5. Time Status Filter
       if (timeFilter === 'live') {
-        return isEventLive(event.startTime, event.endTime);
+        return isEventLive(event.startTime, event.endTime, now);
       }
       if (timeFilter === 'today') {
-        return isEventToday(event.startTime);
+        return isEventToday(event.startTime, now);
       }
       if (timeFilter === 'upcoming') {
         const start = new Date(event.startTime);
-        return start > new Date();
+        return start > now;
       }
       if (timeFilter === 'rsvp') {
         return rsvpIds.includes(event.id);
@@ -115,7 +124,7 @@ export default function App() {
 
       return true;
     });
-  }, [searchQuery, categoryFilter, freeFoodOnly, hideConflicts, timeFilter, rsvpIds]);
+  }, [searchQuery, categoryFilter, freeFoodOnly, hideConflicts, timeFilter, rsvpIds, discovery, ignoreUnknownLocations, activeEvents, now]);
 
   // Handle RSVP Click
   const handleRsvpClick = (event) => {
@@ -138,8 +147,8 @@ export default function App() {
   };
 
   const confirmRsvp = (event) => {
-    setRsvpIds((prev) => [...prev, event.id]);
-    showToast(`✓ Registered for "${event.title}"! Syncing to Google Calendar.`);
+    setRsvpIds((prev) => prev.includes(event.id) ? prev : [...prev, event.id]);
+    showToast(`✓ Local RSVP saved for "${event.title}". Register with the organizer separately if required.`);
   };
 
   return (
@@ -150,7 +159,7 @@ export default function App() {
         setViewMode={setViewMode}
         liveCount={liveCount}
         onOpenSchedule={() => setIsScheduleModalOpen(true)}
-        rsvpCount={rsvpIds.length}
+        rsvpCount={activeEvents.filter((event) => rsvpIds.includes(event.id)).length}
       />
 
       {/* Main Container constrained to max-w-5xl mx-auto */}
@@ -162,10 +171,10 @@ export default function App() {
               Campus Intelligence
             </span>
             <h2 className="text-xl font-semibold text-zinc-100 mt-0.5">
-              Live USC Campus Event Radar & Conflict Planner
+              USC Campus Event Discovery & Conflict Planner
             </h2>
             <p className="text-sm font-normal text-zinc-400 mt-1 max-w-2xl">
-              Real-time locations of student club activities, hackathons, and speaker talks. Automatically checks your course schedule so you never double-book.
+              Find campus activities that fit your interests and free time. Conflicts use a mock class schedule; RSVPs are saved only in this browser.
             </p>
           </div>
           <div className="flex items-center gap-3 shrink-0">
@@ -180,6 +189,19 @@ export default function App() {
             </button>
           </div>
         </div>
+
+        <AskAroundSC
+          parsed={discovery}
+          ignoreLocations={ignoreUnknownLocations}
+          resultCount={filteredEvents.length}
+          onSearch={(request) => {
+            setDiscovery(parseDiscoveryRequest(request));
+            setIgnoreUnknownLocations(false);
+            setSelectedDetailEvent(null);
+          }}
+          onClear={() => { setDiscovery(null); setIgnoreUnknownLocations(false); }}
+          onIgnoreLocations={() => setIgnoreUnknownLocations(true)}
+        />
 
         {/* Global Filters Bar */}
         <FiltersBar
@@ -196,6 +218,10 @@ export default function App() {
           totalMatching={filteredEvents.length}
           liveCount={liveCount}
         />
+
+        {filteredEvents.length === 0 && <p role="status" className="rounded-lg border border-zinc-800 p-3 text-sm text-zinc-300">
+          No matching events. Review the search interpretation and filters.
+        </p>}
 
         {/* Active View: Map or List */}
         <section className="pt-2">
@@ -234,6 +260,7 @@ export default function App() {
                 </span>
               </div>
               <ListView
+                discoveryActive={Boolean(discovery)}
                 events={filteredEvents}
                 schedule={MOCK_STUDENT_SCHEDULE}
                 rsvpIds={rsvpIds}
@@ -253,7 +280,7 @@ export default function App() {
             <span className="font-semibold text-zinc-400">aroundSC</span> • Designed for USC AI Product Showdown
           </div>
           <div className="flex items-center gap-4">
-            <span>Data synced from Localist & EngageSC</span>
+            <span>Showcase prototype · Calendar export only</span>
             <span>USC University Park Campus</span>
           </div>
         </div>

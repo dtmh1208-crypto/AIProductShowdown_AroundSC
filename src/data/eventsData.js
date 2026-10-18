@@ -1,24 +1,21 @@
-import { CAMPUS_LOCATIONS } from './campusLocations';
+import { CAMPUS_LOCATIONS } from './campusLocations.js';
+import { campusDateParts } from '../utils/discoveryParser.js';
+import { campusTimeToIso } from '../utils/calendar.js';
 
 // Helper to construct dynamic dates relative to today so the demo is always fresh
 const now = new Date();
-const todayStr = now.toISOString().split('T')[0];
+const todayStr = campusDateParts(now).date;
 
 const addDays = (days) => {
-  const d = new Date(now);
-  d.setDate(d.getDate() + days);
+  const d = new Date(`${todayStr}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString().split('T')[0];
 };
 
-const createTimestamp = (dateStr, hour, minute = 0) => {
-  const d = new Date(dateStr);
-  d.setHours(hour, minute, 0, 0);
-  return d.toISOString();
-};
+const createTimestamp = (dateStr, hour, minute = 0) => campusTimeToIso(dateStr, hour, minute);
 
 // Compute dynamic times for "Happening Now"
-const currentHour = now.getHours();
-const currentMinute = now.getMinutes();
+
 
 // An event that started 30 mins ago and ends in 1 hour
 const liveStart1 = new Date(now.getTime() - 35 * 60 * 1000).toISOString();

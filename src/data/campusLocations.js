@@ -1,4 +1,4 @@
-// Verified USC University Park Campus (UPC) Landmarks with GPS coordinates
+// Prototype campus landmarks. Only entries with coordinateSourceUrl have reviewed source provenance.
 export const CAMPUS_LOCATIONS = {
   TCC: {
     code: 'TCC',
@@ -16,7 +16,10 @@ export const CAMPUS_LOCATIONS = {
     code: 'DML',
     name: 'Doheny Memorial Library',
     area: 'Central Campus',
-    coordinates: [-118.2838, 34.0201]
+    coordinateSourceUrl: 'https://calendar.usc.edu/event/crafting-your-phd-elevator-pitch',
+    coordinateEvidence: 'Official event venue map center=34.020197,-118.283725 (building-level).',
+    coordinatesVerifiedAt: '2026-10-18T02:48:22Z',
+    coordinates: [-118.283725, 34.020197]
   },
   HAHN: {
     code: 'HAHN',

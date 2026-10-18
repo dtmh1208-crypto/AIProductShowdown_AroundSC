@@ -72,10 +72,16 @@ export const EventCard = ({
           <div className="flex items-center gap-2">
             <MapPin className="w-4 h-4 text-usc-cardinal shrink-0" />
             <span className="truncate">
-              <strong className="text-zinc-100 font-medium">{event.location.code}</strong> • {event.room}
+              <strong className="text-zinc-100 font-medium">{event.location.code || event.location.name}</strong>{event.room ? ` • ${event.room}` : ''}
             </span>
           </div>
         </div>
+
+        {event.dataset === 'verified' && <div className="text-xs text-zinc-400 mb-3 space-y-1">
+          <a href={event.sourceUrl} target="_blank" rel="noreferrer" className="text-usc-gold underline">Official event source</a>
+          <p>{event.eligibility}</p>
+          <p>{event.admission}</p>
+        </div>}
 
         {/* Body Description */}
         <p className="text-sm font-normal text-zinc-400 line-clamp-2 mb-4 leading-relaxed">
@@ -95,22 +101,23 @@ export const EventCard = ({
         </div>
       </div>
 
+      {event.registrationUrl && <a href={event.registrationUrl} target="_blank" rel="noreferrer" className="text-sm text-usc-gold underline mb-3">Organizer registration ↗</a>}
       {/* Card Actions Footer */}
       <div className="pt-4 border-t border-zinc-800/80 flex items-center justify-between gap-3">
         {/* Attendees */}
         <div className="flex items-center gap-1.5 text-xs text-zinc-500">
-          <Users className="w-3.5 h-3.5" />
-          <span>{event.attendeesCount + (isRsvpd ? 1 : 0)} Trojans going</span>
+          {Number.isFinite(event.attendeesCount) ? <><Users className="w-3.5 h-3.5" />
+          <span>{event.attendeesCount + (isRsvpd ? 1 : 0)} Trojans going{event.dataset === 'sample' ? ' (sample)' : ''}</span></> : <span>Attendance unknown</span>}
         </div>
 
         {/* RSVP / Registered Buttons */}
         <div className="flex items-center gap-2">
           {isRsvpd ? (
             <div className="flex items-center gap-1.5">
-              <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+              <button type="button" onClick={() => onRsvpClick(event)} title="Remove local RSVP" className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
                 <Check className="w-3.5 h-3.5" />
-                <span>RSVP'd</span>
-              </span>
+                <span>Local RSVP ✓</span>
+              </button>
               <a
                 href={getGoogleCalendarUrl(event)}
                 target="_blank"
@@ -130,7 +137,7 @@ export const EventCard = ({
                   : 'bg-usc-cardinal hover:bg-usc-cardinal-light text-zinc-100 border border-usc-cardinal-light shadow-sm'
               }`}
             >
-              <span>RSVP</span>
+              <span>RSVP locally</span>
               {hasConflict && <AlertTriangle className="w-3 h-3 text-rose-400" />}
             </button>
           )}

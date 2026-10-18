@@ -97,12 +97,26 @@ export const EventDetailModal = ({
                   Campus Location
                 </span>
                 <span className="text-sm font-semibold text-zinc-200 block">
-                  {event.location.name} ({event.location.code})
+                  {event.location.name}{event.location.code ? ` (${event.location.code})` : ''}
                 </span>
-                <span className="text-xs text-zinc-400">{event.room} • {event.location.area}</span>
+                <span className="text-xs text-zinc-400">{[event.room, event.location.area].filter(Boolean).join(' • ')}</span>
               </div>
             </div>
           </div>
+
+          {event.dataset === 'verified' && <div className="rounded-xl border border-zinc-700 p-4 space-y-2 text-sm text-zinc-300">
+            <a href={event.sourceUrl} target="_blank" rel="noreferrer" className="text-usc-gold underline">Source: {event.sourcePublisher}</a>
+            <p>Manually checked: {new Date(event.verifiedAt).toLocaleString('en-US', { timeZone: 'America/Los_Angeles', timeZoneName: 'short' })}. Not a live status check.</p>
+            <p>Admission: {event.admission}</p>
+            <p>Eligibility: {event.eligibility}</p>
+            <p>Free food: {event.freeFood === null ? 'not confirmed' : event.freeFood ? 'confirmed' : 'not offered'}.</p>
+            <p>Attendance: {event.attendeesCount === null ? 'unknown' : event.attendeesCount}.</p>
+            <a href={event.location.coordinateSourceUrl} target="_blank" rel="noreferrer" className="text-usc-gold underline">Venue coordinate source</a>
+            <p>Map points identify the venue, not a room or entrance. Walking feasibility is unverified.</p>
+            {event.registrationUrl && <a href={event.registrationUrl} target="_blank" rel="noreferrer" className="block text-usc-gold underline">Open organizer registration ↗</a>}
+            {event.registrationNote && <p>{event.registrationNote}</p>}
+          </div>}
+          <p className="text-xs text-zinc-400">AroundSC RSVPs are saved only in this browser. They do not reserve a place or register you with the organizer.</p>
 
           {/* Free Food Callout */}
           {event.freeFood && event.foodDescription && (
@@ -183,10 +197,10 @@ export const EventDetailModal = ({
 
           {/* Primary RSVP Button */}
           {isRsvpd ? (
-            <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600/20 text-emerald-300 border border-emerald-500/40 text-sm font-semibold">
+            <button type="button" onClick={() => onRsvpClick(event)} title="Remove local RSVP" className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600/20 text-emerald-300 border border-emerald-500/40 text-sm font-semibold">
               <Check className="w-4 h-4" />
-              <span>You are RSVP'd!</span>
-            </div>
+              <span>Local RSVP saved · Remove</span>
+            </button>
           ) : (
             <button
               onClick={() => {
@@ -194,7 +208,7 @@ export const EventDetailModal = ({
               }}
               className="px-5 py-2 rounded-lg text-sm font-semibold bg-usc-cardinal hover:bg-usc-cardinal-light text-zinc-100 shadow-md border border-usc-cardinal-light transition-colors flex items-center gap-2"
             >
-              <span>RSVP to Event</span>
+              <span>RSVP locally</span>
             </button>
           )}
         </div>

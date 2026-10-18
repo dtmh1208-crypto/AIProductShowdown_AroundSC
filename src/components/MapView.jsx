@@ -42,6 +42,10 @@ export const MapView = ({
   const isDragging2D = useRef(false);
   const dragStart2D = useRef({ x: 0, y: 0 });
 
+  useEffect(() => {
+    setSelectedPinEvent((selected) => selected && events.some((event) => event.id === selected.id) ? selected : null);
+  }, [events]);
+
   // Initialize MapLibre with safe WebGL detection
   useEffect(() => {
     if (!mapContainerRef.current) return;
@@ -126,8 +130,8 @@ export const MapView = ({
       const count = coordUsage[key] || 0;
       coordUsage[key] = count + 1;
 
-      const offsetLng = coords[0] + (count % 3 - 1) * 0.00035;
-      const offsetLat = coords[1] + Math.floor(count / 3) * 0.00035;
+      const offsetLng = event.dataset === 'verified' ? coords[0] : coords[0] + (count % 3 - 1) * 0.00035;
+      const offsetLat = event.dataset === 'verified' ? coords[1] : coords[1] + Math.floor(count / 3) * 0.00035;
 
       const isLive = isEventLive(event.startTime, event.endTime);
       const conflict = checkConflict(event, schedule);
@@ -165,7 +169,7 @@ export const MapView = ({
         el.innerHTML = `
           <div class="relative flex items-center justify-center">
             <span class="relative flex items-center justify-center w-6 h-6 rounded-full bg-zinc-900 border-2 border-usc-gold text-usc-gold shadow-md text-[11px] font-semibold">
-              ${event.location.code.slice(0, 3)}
+              ${event.location.code.slice(0, 3) || '•'}
             </span>
           </div>
         `;
@@ -459,7 +463,7 @@ export const MapView = ({
                         fontSize="9"
                         fontWeight="bold"
                       >
-                        {event.location.code.slice(0, 3)}
+                        {event.location.code.slice(0, 3) || '•'}
                       </text>
                     </g>
                   )}
