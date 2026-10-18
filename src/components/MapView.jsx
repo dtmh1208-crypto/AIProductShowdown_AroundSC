@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import maplibregl from 'maplibre-gl';
 import { isEventLive } from '../utils/calendar';
 import { CAMPUS_LOCATIONS } from '../data/campusLocations';
-import { MapPin, Navigation, ZoomIn, ZoomOut, RotateCcw, AlertCircle, Compass } from 'lucide-react';
+import { MapPin, Navigation, ZoomIn, ZoomOut, RotateCcw, AlertCircle, Compass, Map as MapIcon } from 'lucide-react';
 import { EventCard } from './EventCard';
 
 // USC University Park Campus (UPC) Center
@@ -36,7 +36,7 @@ export const MapView = ({
   const markersRef = useRef([]);
   const [selectedPinEvent, setSelectedPinEvent] = useState(null);
   const [mapLoaded, setMapLoaded] = useState(false);
-  const [useFallback2D, setUseFallback2D] = useState(false);
+  const [useFallback2D, setUseFallback2D] = useState(true);
   const [zoomLevel2D, setZoomLevel2D] = useState(1);
   const [pan2D, setPan2D] = useState({ x: 0, y: 0 });
   const isDragging2D = useRef(false);
@@ -239,11 +239,14 @@ export const MapView = ({
 
   return (
     <div className="relative w-full h-[620px] rounded-2xl border border-zinc-800 bg-zinc-900 overflow-hidden shadow-2xl select-none">
-      {/* Primary Map or 2D Campus Radar Fallback */}
-      {!useFallback2D ? (
-        <div ref={mapContainerRef} className="w-full h-full" />
-      ) : (
-        /* 2D Interactive USC Campus Radar Canvas */
+      {/* 3D Map Container (MapLibre + CARTO) */}
+      <div
+        ref={mapContainerRef}
+        className={`w-full h-full ${useFallback2D ? 'hidden' : 'block'}`}
+      />
+
+      {/* 2D Interactive USC Campus Radar Canvas */}
+      {useFallback2D && (
         <div
           className="w-full h-full relative bg-[#09090b] cursor-grab active:cursor-grabbing overflow-hidden"
           onMouseDown={handleMouseDown2D}
@@ -470,6 +473,17 @@ export const MapView = ({
       {/* Floating Map Controls */}
       <div className="absolute top-4 right-4 z-10 flex flex-col gap-2">
         <button
+          onClick={() => setUseFallback2D(!useFallback2D)}
+          className="p-2.5 rounded-lg bg-zinc-900/90 hover:bg-zinc-800 text-zinc-300 hover:text-zinc-100 border border-zinc-700 shadow-md backdrop-blur-md transition-colors flex items-center justify-center"
+          title={useFallback2D ? 'Switch to 3D Vector Map' : 'Switch to 2D Campus Radar'}
+        >
+          {useFallback2D ? (
+            <MapIcon className="w-4 h-4 text-usc-gold" />
+          ) : (
+            <Compass className="w-4 h-4 text-usc-gold" />
+          )}
+        </button>
+        <button
           onClick={resetCampusView}
           className="p-2.5 rounded-lg bg-zinc-900/90 hover:bg-zinc-800 text-zinc-300 hover:text-zinc-100 border border-zinc-700 shadow-md backdrop-blur-md transition-colors"
           title="Reset to Campus Center"
@@ -506,12 +520,23 @@ export const MapView = ({
           <span className="w-2.5 h-2.5 rounded-full bg-zinc-800 border border-usc-gold"></span>
           Upcoming
         </span>
-        {useFallback2D && (
-          <span className="pl-2 border-l border-zinc-800 text-[11px] text-usc-gold flex items-center gap-1 font-medium">
-            <Compass className="w-3 h-3 text-usc-gold" />
-            2D Radar Mode
-          </span>
-        )}
+        <button
+          onClick={() => setUseFallback2D(!useFallback2D)}
+          className="pl-2 border-l border-zinc-800 text-[11px] text-usc-gold hover:text-usc-gold-light flex items-center gap-1 font-medium transition-colors cursor-pointer"
+          title="Click to toggle between 2D Radar and 3D Vector Map"
+        >
+          {useFallback2D ? (
+            <>
+              <Compass className="w-3.5 h-3.5 text-usc-gold" />
+              <span>2D Radar Mode</span>
+            </>
+          ) : (
+            <>
+              <MapIcon className="w-3.5 h-3.5 text-usc-gold" />
+              <span>3D Vector Mode</span>
+            </>
+          )}
+        </button>
       </div>
 
       {/* Selected Event Card Drawer on Bottom of Map */}
