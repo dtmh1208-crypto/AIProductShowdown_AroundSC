@@ -31,3 +31,14 @@ export function getRsvpAction(event, rsvpIds, schedule) {
 export function updateRsvps(ids, eventId, attending) {
   return attending ? [...new Set([...ids, eventId])] : ids.filter((id) => id !== eventId);
 }
+
+// Calendar membership is derived from existing RSVP IDs, independently of discovery filters.
+export function getCalendarCampusEvents(events, rsvpIds = []) {
+  const attending = new Set(rsvpIds);
+  const seen = new Set();
+  return events.filter((event) => {
+    if (!attending.has(event.id) || seen.has(event.id)) return false;
+    seen.add(event.id);
+    return true;
+  });
+}

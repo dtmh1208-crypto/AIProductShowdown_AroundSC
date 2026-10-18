@@ -59,7 +59,7 @@ export const FiltersBar = ({
                 ? 'bg-usc-gold/15 border-usc-gold/50 text-usc-gold'
                 : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800'
             }`}
-            title="Hide events that conflict with your class schedule"
+            title="Hide events that overlap imported commitments or the enabled mock schedule"
           >
             <ShieldAlert className="w-4 h-4" />
             <span className="text-xs uppercase tracking-wider font-semibold">No Conflicts</span>
@@ -130,7 +130,7 @@ export const FiltersBar = ({
         <span>Showing <strong className="text-zinc-100 font-semibold">{totalMatching}</strong> campus events</span>
         {hideConflicts && (
           <span className="text-usc-gold flex items-center gap-1">
-            ✓ Filtered out overlapping class times
+            ✓ Filtered out schedule overlaps
           </span>
         )}
       </div>

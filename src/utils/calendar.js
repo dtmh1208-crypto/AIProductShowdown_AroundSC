@@ -1,3 +1,4 @@
+import { formatPersonalTime, isPersonalEvent, isImportedCampusOccurrence } from './personalCalendar.js';
 import { CAMPUS_TIMEZONE, campusDateParts } from './discoveryParser.js';
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -15,7 +16,7 @@ export function campusTimeToIso(date, hour, minute = 0) {
   throw new Error('This campus wall time does not exist or cannot be resolved.');
 }
 
-export const checkCalendarConflict = (event, schedule) => {
+const checkMockCalendarConflict = (event, schedule) => {
   if (!event?.startTime || !event?.endTime || !schedule?.length) return { hasConflict: false, conflictingClass: null };
   const start = new Date(event.startTime);
   const end = new Date(event.endTime);
@@ -34,6 +35,21 @@ export const checkCalendarConflict = (event, schedule) => {
     }
   }
   return { hasConflict: false, conflictingClass: null };
+};
+
+// Imported commitments use absolute instants (all-day dates use campus midnight).
+export const checkCalendarConflict = (event, schedule = []) => {
+  const start = Date.parse(event?.startTime), end = Date.parse(event?.endTime);
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return { hasConflict: false, conflictingClass: null, conflicts: [] };
+  const blocks = Array.isArray(schedule) ? schedule : [];
+  const conflicts = blocks.filter((item) => isPersonalEvent(item) && item.busy && !isImportedCampusOccurrence(item, event)).filter((item) => {
+    const from = item.allDay ? Date.parse(campusTimeToIso(item.startTime, 0)) : Date.parse(item.startTime);
+    const to = item.allDay ? Date.parse(campusTimeToIso(item.endTime, 0)) : Date.parse(item.endTime);
+    return start < to && end > from;
+  }).map((item) => ({ ...item, code: 'Personal commitment', details: `Personal: ${item.title} · ${formatPersonalTime(item)}${item.location ? ` · ${item.location}` : ''}` }));
+  const mock = checkMockCalendarConflict(event, blocks.filter((item) => item.kind !== 'personal'));
+  if (mock.hasConflict) conflicts.push({ ...mock.conflictingClass, code: `Mock ${mock.conflictingClass.code}`, details: `Mock schedule: ${mock.details}` });
+  return { hasConflict: conflicts.length > 0, conflictingClass: conflicts[0] || null, conflicts, details: conflicts.map((item) => item.details).join('\n') };
 };
 
 export const isEventLive = (startTime, endTime, now = new Date()) => now >= new Date(startTime) && now < new Date(endTime);

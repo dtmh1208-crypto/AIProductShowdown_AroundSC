@@ -88,7 +88,7 @@ test('RSVP migration keeps both old lists, maps duplicate IDs, and never resurre
   assert.deepEqual(loadShowcaseRsvps(storage({ aroundsc_rsvps: ['sample-copy'], aroundsc_verified_rsvps: [curated.id] }), result.aliases), [curated.id]);
   assert.deepEqual(loadShowcaseRsvps(storage({ [SHOWCASE_RSVP_KEY]: [], aroundsc_rsvps: ['sample-copy'], aroundsc_verified_rsvps: [curated.id] }), result.aliases), []);
   assert.deepEqual(loadShowcaseRsvps(storage({ [SHOWCASE_RSVP_KEY]: ['evt-01', 'evt-01', 2] }), result.aliases), ['evt-01']);
-  assert.deepEqual(loadShowcaseRsvps(null, result.aliases), ['evt-01']);
+  assert.deepEqual(loadShowcaseRsvps(null, result.aliases), []);
   const collision = build([{ ...sample, id: curated.id }], [curated]);
   assert.deepEqual(loadShowcaseRsvps(storage({ aroundsc_rsvps: [curated.id], aroundsc_verified_rsvps: [curated.id] }), collision.aliases), [`sample:${curated.id}`, curated.id]);
 });

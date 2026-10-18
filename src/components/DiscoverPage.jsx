@@ -6,11 +6,12 @@ import { MapView } from './MapView';
 import { ListView } from './ListView';
 import { ErrorBoundary } from './ErrorBoundary';
 import { parseDiscoveryRequest } from '../utils/discoveryParser';
-import { MOCK_STUDENT_SCHEDULE } from '../data/mockSchedule';
+import { CalendarView } from './CalendarView';
 import { checkCalendarConflict } from '../utils/calendar';
 
 export function DiscoverPage({
   viewMode, setViewMode, liveCount, activeEvents, rsvpIds, onOpenSchedule,
+  calendarState, updateCalendar, calendarError, schedule = [],
   discovery, setDiscovery, discoveryRequest, setDiscoveryRequest, ignoreUnknownLocations, setIgnoreUnknownLocations,
   filteredEvents, setSelectedDetailEvent, searchQuery, setSearchQuery,
   timeFilter, setTimeFilter, categoryFilter, setCategoryFilter,
@@ -18,12 +19,14 @@ export function DiscoverPage({
 }) {
   return <>
     <Header viewMode={viewMode} setViewMode={setViewMode} onOpenSchedule={onOpenSchedule} rsvpCount={activeEvents.filter((event) => rsvpIds.includes(event.id)).length} />
-    <main id="main-content" tabIndex={-1} aria-label="Discover events">
+    <main id="main-content" tabIndex={-1} aria-label="Discover events" className={viewMode === 'calendar' ? 'calendar-workspace' : undefined}>
         <section id="discover" className="pulse-discovery">
-          <div className="pulse-section-intro">
+          {viewMode !== 'calendar' && <div className="pulse-section-intro">
             <div><span className="pulse-section-kicker">01 / YOUR NEXT GOOD PLAN</span><h1>Find your <em>scene.</em></h1></div>
             <p>Big ideas, small gatherings, and everything in between. Explore what moves you.</p>
-          </div>
+          </div>}
+          {viewMode === 'calendar' && <h1 className="sr-only">AroundSC Calendar</h1>}
+          {viewMode === 'calendar' ? <CalendarView rsvpIds={rsvpIds} onExploreEvents={() => setViewMode('list')} events={activeEvents} calendarState={calendarState} onChange={updateCalendar} storageError={calendarError} schedule={schedule} onSelectEvent={setSelectedDetailEvent} /> : <>
           <div className="pulse-discovery-console">
         <AskAroundSC
           initialRequest={discoveryRequest}
@@ -80,7 +83,7 @@ export function DiscoverPage({
               >
                 <MapView
                   events={filteredEvents}
-                  schedule={MOCK_STUDENT_SCHEDULE}
+                  schedule={schedule}
                   rsvpIds={rsvpIds}
                   onRsvpClick={handleRsvpClick}
                   onSelectEvent={(evt) => setSelectedDetailEvent(evt)}
@@ -101,7 +104,7 @@ export function DiscoverPage({
               <ListView
                 discoveryActive={Boolean(discovery)}
                 events={filteredEvents}
-                schedule={MOCK_STUDENT_SCHEDULE}
+                schedule={schedule}
                 rsvpIds={rsvpIds}
                 onRsvpClick={handleRsvpClick}
                 onSelectEvent={(evt) => setSelectedDetailEvent(evt)}
@@ -110,6 +113,7 @@ export function DiscoverPage({
             </div>
           )}
         </section>
+        </>}
         </section>
     </main>
   </>;

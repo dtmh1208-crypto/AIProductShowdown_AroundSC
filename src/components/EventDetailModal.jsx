@@ -142,8 +142,8 @@ export const EventDetailModal = ({
                 <h4 className="text-xs uppercase tracking-wider font-semibold text-usc-gold">
                   Schedule Collision Notice
                 </h4>
-                <p className="text-sm text-zinc-300 mt-0.5">
-                  This session runs during your <strong>{conflictingClass?.code}</strong> class ({conflictingClass?.days.join('/')} at {conflictingClass?.startTime}).
+                <p className="text-sm text-zinc-300 mt-0.5 whitespace-pre-line">
+                  {conflictInfo?.details || `${conflictingClass?.code}: ${conflictingClass?.title}`}
                 </p>
               </div>
             </div>

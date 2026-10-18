@@ -11,7 +11,7 @@ const readIds = (storage, key) => {
 export function loadShowcaseRsvps(storage, aliases) {
   const saved = readIds(storage, SHOWCASE_RSVP_KEY);
   if (saved !== null) return [...new Set(saved)];
-  const sample = readIds(storage, 'aroundsc_rsvps') ?? ['evt-01'];
+  const sample = readIds(storage, 'aroundsc_rsvps') ?? [];
   const verified = readIds(storage, 'aroundsc_verified_rsvps') ?? [];
   return [...new Set([
     ...sample.map((id) => aliases.sample[id] ?? id),

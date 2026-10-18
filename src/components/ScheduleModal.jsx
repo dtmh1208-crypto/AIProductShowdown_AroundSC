@@ -17,10 +17,10 @@ export const ScheduleModal = ({ isOpen, onClose, schedule }) => {
             </div>
             <div>
               <h3 id="schedule-title" className="text-xl font-semibold text-zinc-100">
-                My Class Schedule
+                Mock Class Schedule
               </h3>
               <span className="text-xs uppercase tracking-wider font-medium text-zinc-500">
-                USC Fall Semester • Active for Conflict Detection
+                Demo data • Not your enrolled classes
               </span>
             </div>
           </div>
@@ -38,7 +38,7 @@ export const ScheduleModal = ({ isOpen, onClose, schedule }) => {
           <div className="p-3.5 rounded-xl border border-zinc-800 bg-zinc-950/60 flex items-start gap-3">
             <ShieldCheck className="w-5 h-5 text-usc-gold shrink-0 mt-0.5" />
             <p className="text-xs text-zinc-400 leading-relaxed">
-              <strong>aroundSC</strong> automatically scans these class hours in real time. Whenever a campus event or club meeting overlaps with one of your lecture slots, you will see a warning badge and prompt.
+              <strong>AroundSC</strong> uses these illustrative class hours only when the mock schedule is enabled. Whenever a campus event or club meeting overlaps with one of these mock lecture slots, you will see a warning badge and prompt.
             </p>
           </div>
 

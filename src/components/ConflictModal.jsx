@@ -1,6 +1,7 @@
 import React from 'react';
 import { useDialog } from './useDialog';
 import { AlertTriangle, Clock, MapPin, CheckCircle, X } from 'lucide-react';
+import { formatPersonalTime } from '../utils/personalCalendar';
 import { formatEventDateTime } from '../utils/calendar';
 
 export const ConflictModal = ({
@@ -26,7 +27,7 @@ export const ConflictModal = ({
               Schedule Conflict Detected
             </h3>
             <span className="text-xs uppercase tracking-wider font-medium text-usc-gold">
-              Overlaps with your enrolled class
+              Overlaps with a calendar commitment
             </span>
           </div>
           <button
@@ -41,7 +42,7 @@ export const ConflictModal = ({
         {/* Content Body */}
         <div className="p-6 space-y-4">
           <p className="text-sm font-normal text-zinc-300 leading-relaxed">
-            You are attempting to RSVP for an event that overlaps directly with your academic schedule:
+            You are attempting to RSVP for an event that overlaps directly with your selected schedule:
           </p>
 
           {/* Conflict Comparison Box */}
@@ -61,7 +62,7 @@ export const ConflictModal = ({
             {/* The Conflicting Class */}
             <div className="p-3.5 rounded-xl border border-usc-gold/60 bg-usc-cardinal/20">
               <span className="text-xs uppercase tracking-wider font-semibold text-usc-gold block mb-1">
-                ⚠️ Your Conflicting Class Block
+                ⚠️ {conflictingClass?.kind === 'personal' ? 'Personal commitment' : 'Mock class schedule'}
               </span>
               <p className="text-sm font-semibold text-zinc-100">
                 {conflictingClass?.code}: {conflictingClass?.title}
@@ -69,7 +70,7 @@ export const ConflictModal = ({
               <div className="flex items-center gap-4 text-xs text-zinc-400 mt-1">
                 <span className="flex items-center gap-1">
                   <Clock className="w-3.5 h-3.5 text-usc-gold" />
-                  {conflictingClass?.days.join(', ')} • {conflictingClass?.startTime} – {conflictingClass?.endTime}
+                  {conflictingClass?.kind === 'personal' ? formatPersonalTime(conflictingClass) : `${conflictingClass?.days?.join(', ')} • ${conflictingClass?.startTime} – ${conflictingClass?.endTime}`}
                 </span>
                 <span className="flex items-center gap-1">
                   <MapPin className="w-3.5 h-3.5 text-zinc-500" />
@@ -80,7 +81,7 @@ export const ConflictModal = ({
           </div>
 
           <p className="text-xs text-zinc-500">
-            You can still confirm this RSVP to record your interest and add it to your calendar anyway.
+            You can still confirm this RSVP to record your interest and export it to your calendar separately.
           </p>
         </div>
 

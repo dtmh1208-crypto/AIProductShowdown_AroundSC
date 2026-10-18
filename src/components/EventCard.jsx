@@ -42,7 +42,7 @@ export const EventCard = ({
           {hasConflict && (
             <span
               className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-usc-gold/15 text-usc-gold border border-usc-gold/30"
-              title={`Conflicts with your ${conflictingClass?.code} class`}
+              title={`Schedule overlap: ${conflictingClass?.title} (${conflictingClass?.code})`}
             >
               <AlertTriangle className="w-3 h-3 text-usc-gold" />
               <span>Conflict ({conflictingClass?.code})</span>

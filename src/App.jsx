@@ -5,7 +5,6 @@ import { PageLink } from './components/PageLink';
 import { CATEGORIES } from './components/FiltersBar';
 import { resolvePage } from './utils/navigation';
 import { ConflictModal } from './components/ConflictModal';
-import { ScheduleModal } from './components/ScheduleModal';
 import { EventDetailModal } from './components/EventDetailModal';
 import { RAW_EVENTS } from './data/eventsData';
 import { VERIFIED_EVENT_RECORDS } from './data/verifiedEvents';
@@ -13,6 +12,7 @@ import { buildShowcaseCollection } from './utils/eventAdapter';
 import { loadShowcaseRsvps, SHOWCASE_RSVP_KEY } from './utils/rsvpStorage';
 import { MOCK_STUDENT_SCHEDULE } from './data/mockSchedule';
 import { checkCalendarConflict, isEventLive } from './utils/calendar';
+import { loadPersonalCalendar, persistCalendarChange } from './utils/personalCalendar';
 import { filterEvents, getRsvpAction, updateRsvps } from './utils/eventDiscovery';
 
 export default function App({ initialPath } = {}) {
@@ -49,10 +49,25 @@ export default function App({ initialPath } = {}) {
     catch (error) { console.error(error); }
   }, [rsvpIds]);
 
+  const [calendarError, setCalendarError] = useState('');
+  const [calendarState, setCalendarState] = useState(() => {
+    try { return loadPersonalCalendar(globalThis.localStorage); }
+    catch { return { events: [], continued: false, remember: false, useMock: false, loadFailed: true }; }
+  });
+  const updateCalendar = (next, options) => {
+    // Storage access can itself throw in private/blocked browser contexts.
+    let storage;
+    try { storage = globalThis.localStorage; } catch { /* Helper reports session-only limitations. */ }
+    const result = persistCalendarChange(storage, calendarState, next, options);
+    setCalendarError(result.error);
+    if (result.applied) setCalendarState(result.state);
+    return result.applied;
+  };
+  const schedule = useMemo(() => [...calendarState.events, ...(calendarState.useMock ? MOCK_STUDENT_SCHEDULE : [])], [calendarState.events, calendarState.useMock]);
+
   // Modal States
   const [selectedDetailEvent, setSelectedDetailEvent] = useState(null);
   const [pendingConflictEvent, setPendingConflictEvent] = useState(null);
-  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
 
   // Toast trigger
@@ -70,16 +85,17 @@ export default function App({ initialPath } = {}) {
 
   const filteredEvents = useMemo(() => filterEvents(activeEvents, {
     searchQuery, categoryFilter, freeFoodOnly, hideConflicts, timeFilter, rsvpIds,
-    discovery, ignoreUnknownLocations, schedule: MOCK_STUDENT_SCHEDULE,
+    discovery, ignoreUnknownLocations, schedule,
   }, now), [searchQuery, categoryFilter, freeFoodOnly, hideConflicts, timeFilter, rsvpIds,
-    discovery, ignoreUnknownLocations, activeEvents, now]);
+    discovery, ignoreUnknownLocations, activeEvents, now, schedule]);
 
   // Handle RSVP Click
   const handleRsvpClick = (event) => {
     // If already RSVP'd, allow toggling off or skip
-    const action = getRsvpAction(event, rsvpIds, MOCK_STUDENT_SCHEDULE);
+    const action = getRsvpAction(event, rsvpIds, schedule);
     if (action === 'remove') {
       setRsvpIds((prev) => updateRsvps(prev, event.id, false));
+      if (viewMode === 'calendar') setSelectedDetailEvent(null);
       showToast(`Removed "${event.title}" from your schedule`);
       return;
     }
@@ -105,7 +121,7 @@ export default function App({ initialPath } = {}) {
       setPath(window.location.pathname);
       const category = new URLSearchParams(window.location.search).get('category');
       if (CATEGORIES.includes(category)) { setCategoryFilter(category); setViewMode('list'); }
-      setSelectedDetailEvent(null); setPendingConflictEvent(null); setIsScheduleModalOpen(false);
+      setSelectedDetailEvent(null); setPendingConflictEvent(null);
       window.scrollTo({ top: 0, behavior: 'instant' });
     };
     const category = new URLSearchParams(window.location.search).get('category');
@@ -125,7 +141,8 @@ export default function App({ initialPath } = {}) {
       {page === 'home' ? <LandingPage events={activeEvents} onSelectEvent={setSelectedDetailEvent} />
         : page === 'discover' ? <DiscoverPage
           viewMode={viewMode} setViewMode={setViewMode} liveCount={liveCount}
-          activeEvents={activeEvents} rsvpIds={rsvpIds} onOpenSchedule={() => setIsScheduleModalOpen(true)}
+          activeEvents={activeEvents} rsvpIds={rsvpIds} onOpenSchedule={() => setViewMode('calendar')}
+          calendarState={calendarState} updateCalendar={updateCalendar} calendarError={calendarError} schedule={schedule}
           discovery={discovery} setDiscovery={setDiscovery}
           discoveryRequest={discoveryRequest} setDiscoveryRequest={setDiscoveryRequest}
           ignoreUnknownLocations={ignoreUnknownLocations} setIgnoreUnknownLocations={setIgnoreUnknownLocations}
@@ -138,7 +155,7 @@ export default function App({ initialPath } = {}) {
 
       <footer className="pulse-footer">
         <div><PageLink href="/" className="pulse-wordmark" aria-label="AroundSC home">around<span>SC</span>.</PageLink><p>Good things happen when you show up.</p></div>
-        <div className="pulse-footer-note"><span>AROUNDSC</span><p>Independent student showcase prototype.<br />Sample events + curated public listings. Not affiliated with USC.<br />Local RSVPs · Calendar export only.</p></div>
+        <div className="pulse-footer-note"><span>AROUNDSC</span><p>Independent student showcase prototype.<br />Sample events + curated public listings. Not affiliated with USC.<br />Local RSVPs · Local calendar import & export.</p></div>
       </footer>
 
       {/* Modals */}
@@ -148,26 +165,19 @@ export default function App({ initialPath } = {}) {
           isOpen={Boolean(pendingConflictEvent)}
           event={pendingConflictEvent}
           conflictingClass={
-            checkCalendarConflict(pendingConflictEvent, MOCK_STUDENT_SCHEDULE).conflictingClass
+            checkCalendarConflict(pendingConflictEvent, schedule).conflictingClass
           }
           onClose={() => setPendingConflictEvent(null)}
           onConfirmRsvp={(evt) => confirmRsvp(evt)}
         />
       )}
 
-      {/* 2. Student Class Schedule Modal */}
-      <ScheduleModal
-        isOpen={isScheduleModalOpen}
-        onClose={() => setIsScheduleModalOpen(false)}
-        schedule={MOCK_STUDENT_SCHEDULE}
-      />
-
       {/* 3. Event Detail Full Modal */}
       {selectedDetailEvent && (
         <EventDetailModal
           isOpen={Boolean(selectedDetailEvent)}
           event={selectedDetailEvent}
-          conflictInfo={checkCalendarConflict(selectedDetailEvent, MOCK_STUDENT_SCHEDULE)}
+          conflictInfo={checkCalendarConflict(selectedDetailEvent, schedule)}
           isRsvpd={rsvpIds.includes(selectedDetailEvent.id)}
           onRsvpClick={handleRsvpClick}
           onClose={() => setSelectedDetailEvent(null)}

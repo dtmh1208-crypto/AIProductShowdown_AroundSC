@@ -15,8 +15,9 @@ export const Header = ({ viewMode, setViewMode, onOpenSchedule, rsvpCount }) => 
         <div className="pulse-view-toggle" aria-label="Discovery view">
           <button aria-pressed={viewMode === 'map'} onClick={() => selectView('map')}><Map size={15} /><span>Map View</span></button>
           <button aria-pressed={viewMode === 'list'} onClick={() => selectView('list')}><List size={15} /><span>List View</span></button>
+          <button aria-pressed={viewMode === 'calendar'} onClick={() => selectView('calendar')}><Calendar size={15} /><span>Calendar</span></button>
         </div>
-        <button className="pulse-schedule-button" onClick={onOpenSchedule} title="View mock class schedule and conflict rules"><Calendar size={16} /><span>My Schedule</span>{rsvpCount > 0 && <span className="pulse-rsvp-count">{rsvpCount}</span>}</button>
+        <button className="pulse-schedule-button" onClick={onOpenSchedule} title="Open your personal calendar and campus events"><Calendar size={16} /><span>My Schedule</span>{rsvpCount > 0 && <span className="pulse-rsvp-count">{rsvpCount}</span>}</button>
       </div>
     </header>
   );
