@@ -1,4 +1,5 @@
 import React from 'react';
+import { useDialog } from './useDialog';
 import {
   Calendar,
   Clock,
@@ -21,6 +22,7 @@ export const EventDetailModal = ({
   isRsvpd,
   onRsvpClick
 }) => {
+  const dialogRef = useDialog(isOpen && Boolean(event), onClose);
   if (!isOpen || !event) return null;
 
   const isLive = isEventLive(event.startTime, event.endTime);
@@ -28,7 +30,7 @@ export const EventDetailModal = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
-      <div className="relative w-full max-w-2xl rounded-2xl border border-zinc-800 bg-zinc-900 shadow-2xl overflow-hidden max-h-[85vh] flex flex-col">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="event-details-title" tabIndex={-1} className="relative w-full max-w-2xl rounded-2xl border border-zinc-800 bg-zinc-900 shadow-2xl overflow-hidden max-h-[85vh] flex flex-col">
         {/* Header */}
         <div className="px-6 py-5 border-b border-zinc-800 flex items-start justify-between gap-4">
           <div>
@@ -45,20 +47,20 @@ export const EventDetailModal = ({
               )}
 
               {event.freeFood && (
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-usc-gold/15 text-usc-gold border border-usc-gold/30">
                   <span>🍕</span> Free Food Perk
                 </span>
               )}
 
               {hasConflict && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-rose-500/15 text-rose-300 border border-rose-500/30">
-                  <AlertTriangle className="w-3 h-3 text-rose-400" />
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-usc-gold/15 text-usc-gold border border-usc-gold/30">
+                  <AlertTriangle className="w-3 h-3 text-usc-gold" />
                   <span>Conflicts with {conflictingClass?.code}</span>
                 </span>
               )}
             </div>
 
-            <h2 className="text-2xl font-bold tracking-tight text-zinc-100">
+            <h2 id="event-details-title" className="text-2xl font-bold tracking-tight text-zinc-100">
               {event.title}
             </h2>
             <p className="text-xs uppercase tracking-wider font-medium text-zinc-500 mt-1">
@@ -67,6 +69,7 @@ export const EventDetailModal = ({
           </div>
 
           <button
+            aria-label="Close dialog"
             onClick={onClose}
             className="text-zinc-400 hover:text-zinc-100 p-1.5 rounded-lg hover:bg-zinc-800 transition-colors shrink-0"
           >
@@ -120,10 +123,10 @@ export const EventDetailModal = ({
 
           {/* Free Food Callout */}
           {event.freeFood && event.foodDescription && (
-            <div className="p-4 rounded-xl border border-amber-500/30 bg-amber-500/10 flex items-start gap-3">
-              <Utensils className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+            <div className="p-4 rounded-xl border border-usc-gold/30 bg-usc-gold/10 flex items-start gap-3">
+              <Utensils className="w-5 h-5 text-usc-gold shrink-0 mt-0.5" />
               <div>
-                <h4 className="text-xs uppercase tracking-wider font-semibold text-amber-300">
+                <h4 className="text-xs uppercase tracking-wider font-semibold text-usc-gold">
                   Food Details
                 </h4>
                 <p className="text-sm text-zinc-200 mt-0.5">{event.foodDescription}</p>
@@ -133,10 +136,10 @@ export const EventDetailModal = ({
 
           {/* Conflict Alert Box if conflicting */}
           {hasConflict && (
-            <div className="p-4 rounded-xl border border-rose-900/60 bg-rose-950/20 flex items-start gap-3">
-              <AlertTriangle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
+            <div className="p-4 rounded-xl border border-usc-gold/60 bg-usc-cardinal/20 flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-usc-gold shrink-0 mt-0.5" />
               <div>
-                <h4 className="text-xs uppercase tracking-wider font-semibold text-rose-300">
+                <h4 className="text-xs uppercase tracking-wider font-semibold text-usc-gold">
                   Schedule Collision Notice
                 </h4>
                 <p className="text-sm text-zinc-300 mt-0.5">
@@ -197,7 +200,7 @@ export const EventDetailModal = ({
 
           {/* Primary RSVP Button */}
           {isRsvpd ? (
-            <button type="button" onClick={() => onRsvpClick(event)} title="Remove local RSVP" className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600/20 text-emerald-300 border border-emerald-500/40 text-sm font-semibold">
+            <button type="button" onClick={() => onRsvpClick(event)} title="Remove local RSVP" className="flex items-center gap-2 px-4 py-2 rounded-lg bg-usc-cardinal/20 text-usc-gold border border-usc-gold/40 text-sm font-semibold">
               <Check className="w-4 h-4" />
               <span>Local RSVP saved · Remove</span>
             </button>

@@ -1,3 +1,4 @@
+import { hasCoordinates } from './eventAdapter.js';
 import { CAMPUS_LOCATIONS } from '../data/campusLocations.js';
 import { campusDateParts, INTERESTS } from './discoveryParser.js';
 
@@ -36,7 +37,7 @@ export function matchesDiscovery(event, parsed, { ignoreLocations = false } = {}
   if (c.origin && (c.origin.code || !ignoreLocations)) {
     const origin = CAMPUS_LOCATIONS[c.origin.code];
     const coords = event.location?.coordinates;
-    if (!origin || !coords || distanceMeters(origin.coordinates, coords) > c.radiusMeters) return false;
+    if (!hasCoordinates(origin) || !hasCoordinates(event.location) || distanceMeters(origin.coordinates, coords) > c.radiusMeters) return false;
   }
   // A destination is retained for review; without routing data it supplies no proximity rule.
   return true;

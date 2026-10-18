@@ -1,12 +1,14 @@
 import React from 'react';
+import { useDialog } from './useDialog';
 import { Calendar, Clock, MapPin, X, BookOpen, ShieldCheck } from 'lucide-react';
 
 export const ScheduleModal = ({ isOpen, onClose, schedule }) => {
+  const dialogRef = useDialog(isOpen, onClose);
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
-      <div className="relative w-full max-w-xl rounded-2xl border border-zinc-800 bg-zinc-900 shadow-2xl overflow-hidden">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="schedule-title" tabIndex={-1} className="relative w-full max-w-xl rounded-2xl border border-zinc-800 bg-zinc-900 shadow-2xl overflow-hidden">
         {/* Header */}
         <div className="px-6 py-4 border-b border-zinc-800 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -14,7 +16,7 @@ export const ScheduleModal = ({ isOpen, onClose, schedule }) => {
               <Calendar className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-xl font-semibold text-zinc-100">
+              <h3 id="schedule-title" className="text-xl font-semibold text-zinc-100">
                 My Class Schedule
               </h3>
               <span className="text-xs uppercase tracking-wider font-medium text-zinc-500">
@@ -23,6 +25,7 @@ export const ScheduleModal = ({ isOpen, onClose, schedule }) => {
             </div>
           </div>
           <button
+            aria-label="Close dialog"
             onClick={onClose}
             className="text-zinc-400 hover:text-zinc-100 p-1 rounded-lg hover:bg-zinc-800 transition-colors"
           >
@@ -33,7 +36,7 @@ export const ScheduleModal = ({ isOpen, onClose, schedule }) => {
         {/* Schedule List */}
         <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
           <div className="p-3.5 rounded-xl border border-zinc-800 bg-zinc-950/60 flex items-start gap-3">
-            <ShieldCheck className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
+            <ShieldCheck className="w-5 h-5 text-usc-gold shrink-0 mt-0.5" />
             <p className="text-xs text-zinc-400 leading-relaxed">
               <strong>aroundSC</strong> automatically scans these class hours in real time. Whenever a campus event or club meeting overlaps with one of your lecture slots, you will see a warning badge and prompt.
             </p>

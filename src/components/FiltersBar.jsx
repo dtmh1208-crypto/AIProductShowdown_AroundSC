@@ -18,7 +18,7 @@ export const FiltersBar = ({
   liveCount
 }) => {
   return (
-    <div className="w-full space-y-4">
+    <div className="pulse-filters w-full space-y-4">
       {/* Top Search & Highlights Row */}
       <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
         {/* Search Input (rounded-md) */}
@@ -26,6 +26,7 @@ export const FiltersBar = ({
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
           <input
             type="text"
+            aria-label="Search events, organizers, food, or buildings"
             placeholder="Search USC events, clubs, or campus buildings (e.g. TCC, AI, Boba)..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -37,10 +38,11 @@ export const FiltersBar = ({
         <div className="flex items-center gap-2">
           {/* Free Food Toggle */}
           <button
+            aria-pressed={freeFoodOnly}
             onClick={() => setFreeFoodOnly(!freeFoodOnly)}
             className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors border ${
               freeFoodOnly
-                ? 'bg-amber-500/15 border-amber-500/50 text-amber-300'
+                ? 'bg-usc-gold/15 border-usc-gold/50 text-usc-gold'
                 : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800'
             }`}
           >
@@ -50,10 +52,11 @@ export const FiltersBar = ({
 
           {/* Conflict Filter Toggle */}
           <button
+            aria-pressed={hideConflicts}
             onClick={() => setHideConflicts(!hideConflicts)}
             className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors border ${
               hideConflicts
-                ? 'bg-emerald-500/15 border-emerald-500/50 text-emerald-300'
+                ? 'bg-usc-gold/15 border-usc-gold/50 text-usc-gold'
                 : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800'
             }`}
             title="Hide events that conflict with your class schedule"
@@ -80,6 +83,7 @@ export const FiltersBar = ({
             return (
               <button
                 key={tab.id}
+                aria-pressed={isActive}
                 onClick={() => setTimeFilter(tab.id)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wider transition-colors ${
                   isActive
@@ -106,6 +110,7 @@ export const FiltersBar = ({
             return (
               <button
                 key={cat}
+                aria-pressed={isActive}
                 onClick={() => setCategoryFilter(cat)}
                 className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
                   isActive
@@ -124,7 +129,7 @@ export const FiltersBar = ({
       <div className="flex items-center justify-between text-xs text-zinc-500 pt-1">
         <span>Showing <strong className="text-zinc-100 font-semibold">{totalMatching}</strong> campus events</span>
         {hideConflicts && (
-          <span className="text-emerald-400 flex items-center gap-1">
+          <span className="text-usc-gold flex items-center gap-1">
             ✓ Filtered out overlapping class times
           </span>
         )}

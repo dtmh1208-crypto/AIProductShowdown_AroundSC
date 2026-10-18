@@ -19,9 +19,21 @@ npm run build
 npm run preview
 ```
 
+## Pages and routing
+
+- `/` is the separate AroundSC homepage: navigation, hero, actual-event previews, featured grid, how-it-works, about and closing CTA. It does not mount Ask AroundSC, the map or discovery filters.
+- `/discover` is the functional event discovery app. Explore events and Discover links use the History API; the AroundSC wordmark returns to `/`. Browser Back/Forward changes pages. Category links can open `/discover?category=Arts`.
+- Featured cards use actual records from the same collection and open the existing event-details modal. Homepage cards do not display invented attendance counts.
+
+`App.jsx` owns one event/filter/RSVP controller shared across pages. `LandingPage.jsx` and `DiscoverPage.jsx` are separate render branches; no second discovery engine was introduced. Submitted natural-language criteria and other filters survive client-side page changes, and local RSVPs remain in the existing browser storage key.
+
+Vite's asset base is `/`. The local Vite dev and preview servers provide SPA fallback for direct `/discover` loads. For production hosting, serve `dist/` at the domain root and configure unknown application paths (including `/discover`) to serve `index.html`, while keeping `/assets/*` as static files. A static host without this rewrite will return a 404 on refresh; this repository does not configure an external deployment. Do not open `dist/index.html` via `file://`.
+
+The homepage uses CSS entrance/hover animations and IntersectionObserver reveals, with readable fallbacks and reduced-motion handling. The live-browser acceptance checks (visual/mobile layout, click navigation, browser Back/Forward/refresh, featured modals, map modes and RSVP persistence) are separate from static/server-render tests.
+
 ## One showcase collection
 
-The app opens directly into one collection used by the map, list, filters, counts, natural-language search, event details and My RSVPs. There is no collection selector. Both source files stay in the project: `src/data/eventsData.js` contains 32 synthetic sample events, and `src/data/verifiedEvents.js` contains two manually curated public USC listings. Neither an AI API nor a live USC/EngageSC feed is connected.
+The `/discover` page uses one collection shared by the map, list, filters, counts, natural-language search, event details and My RSVPs. There is no collection selector. Both source files stay in the project: `src/data/eventsData.js` contains 32 synthetic sample events, and `src/data/verifiedEvents.js` contains two manually curated public USC listings. Neither an AI API nor a live USC/EngageSC feed is connected.
 
 Samples have illustrative descriptions, attendance, food perks and dates generated relative to the current USC date when the module loads. Curated listings keep their real dates, source/registration URLs, eligibility restrictions and coordinate provenance, available in event details. Only those curated listings have review metadata; samples are never marked verified.
 
@@ -36,7 +48,7 @@ Reviewed October 17, 2026, 7:48 PM PDT (`2026-10-18T02:48:22Z`). Two events pass
 - **Crafting Your Ph.D. Elevator Pitch**, October 20, 2026, 5:30–7 PM PDT, Doheny Memorial Library, room 240. Designed for first-year Dornsife Ph.D. students; others must contact the organizer. Admission cost and free food are not confirmed. The listing separates check-in/dinner at 5:30 from programming at 6. [Official source](https://calendar.usc.edu/event/crafting-your-phd-elevator-pitch). [Original registration URL](https://forms.gle/xj8HrRqDP2GqbkE69); the destination form could not be independently loaded during review.
 - **Future Archive**, October 20, 2026, 5–7 PM PDT, Library for International and Public Affairs. Free, open to everyone. The official listing says no reservation is required and also provides an RSVP link; both facts are preserved. [Official source](https://calendar.usc.edu/event/future-archive). [Original external RSVP link](https://engage.usc.edu/USCLibraries/rsvp_boot?id=413408). This is an outbound link, not an EngageSC integration. [Arts in Action corroboration](https://artsinaction.usc.edu/event/future-archive/), [Visions & Voices corroboration](https://visionsandvoices.usc.edu/events/53995646323032).
 
-Coordinate provenance: the **Event Location Map** links on those official USC event pages explicitly publish the named venue map centers. DML: longitude `-118.283725`, latitude `34.020197`. Library for International and Public Affairs: longitude `-118.283977`, latitude `34.021192`. These are venue-level map points, not room/entrance coordinates. The Google map embeds themselves were not loadable through the research tool; the coordinate parameters came from the actual links on the official pages. The Future Archive page does not give a building code or room, so those remain blank. Verified pins use the published coordinates without the sample marker offsets.
+Coordinate provenance: the **Event Location Map** links on those official USC event pages explicitly publish the named venue map centers. DML: longitude `-118.283725`, latitude `34.020197`. Library for International and Public Affairs: longitude `-118.283977`, latitude `34.021192`. These are venue-level map points, not room/entrance coordinates. The Google map embeds themselves were not loadable through the research tool; the coordinate parameters came from the actual links on the official pages. The Future Archive page does not give a building code or room, so those remain blank. All pins retain their stored venue coordinates. Collocated events use screen-space display offsets in both map modes so each pin remains selectable; these offsets do not represent different venues or entrances.
 
 Excluded candidates:
 
@@ -78,3 +90,12 @@ RSVPs are local browser state, not reservations or external registrations. The u
 - `src/utils/calendar.js`: USC time helpers, mock-schedule conflicts and calendar exports.
 
 Focused tests validate records and filtering/export behavior, not real-world availability. Both map modes, view switching, clicking pins, RSVP persistence, conflict dialogs, keyboard/mobile usability and opening external registration/calendar links still require browser checks. The vector map needs network access and browser graphics support; the 2D radar remains available. The curated portion may have no events today or tomorrow and will eventually be empty until manually refreshed; its fixed dates are never shifted to make the demo work. Samples remain available in the same showcase collection.
+
+
+## Functionality audit checks
+
+Run `node --test tests/*.test.js`, `npm run build`, and `git diff --check`. The project has no npm test script and uses Node’s existing test runner; no additional test packages are needed.
+
+`tests/audit.test.js` covers the shared filter/RSVP pipeline, component callbacks, rendered controls and links, calendar download operations with browser API doubles, map lifecycle with an injected engine double, and dialog keyboard/focus logic with a DOM double. `tests/pages.test.js` checks route-specific server rendering and navigation callbacks. These are not mounted browser interaction tests. A passing suite does not verify real WebGL tiles, mobile layouts, browser refresh persistence, actual focus behavior, downloaded-file imports, or external registrations.
+
+The map starts in the offline 2D radar. Switching to the vector map initializes its visible container; unsupported graphics, renderer errors, or a ten-second load timeout show the radar with an explanation. Event data and coordinates are unchanged. Dialogs include names, Escape handling, focus wrapping/restoration, and scroll locking; the conflict warning is layered above event details. Manual browser checks remain necessary.

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useDialog } from './useDialog';
 import { AlertTriangle, Clock, MapPin, CheckCircle, X } from 'lucide-react';
 import { formatEventDateTime } from '../utils/calendar';
 
@@ -9,25 +10,27 @@ export const ConflictModal = ({
   event,
   conflictingClass
 }) => {
+  const dialogRef = useDialog(isOpen && Boolean(event), onClose);
   if (!isOpen || !event) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
-      <div className="relative w-full max-w-lg rounded-2xl border border-rose-800/80 bg-zinc-900 shadow-2xl overflow-hidden">
+    <div style={{ zIndex: 60 }} className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="conflict-title" tabIndex={-1} className="relative w-full max-w-lg rounded-2xl border border-usc-gold/80 bg-zinc-900 shadow-2xl overflow-hidden">
         {/* Warning Accent Banner */}
-        <div className="bg-rose-950/60 border-b border-rose-800/60 px-6 py-4 flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-rose-500/20 text-rose-400 border border-rose-500/30">
+        <div className="bg-usc-cardinal/60 border-b border-usc-gold/60 px-6 py-4 flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-usc-gold/20 text-usc-gold border border-usc-gold/30">
             <AlertTriangle className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="text-xl font-semibold text-zinc-100">
+            <h3 id="conflict-title" className="text-xl font-semibold text-zinc-100">
               Schedule Conflict Detected
             </h3>
-            <span className="text-xs uppercase tracking-wider font-medium text-rose-400">
+            <span className="text-xs uppercase tracking-wider font-medium text-usc-gold">
               Overlaps with your enrolled class
             </span>
           </div>
           <button
+            aria-label="Close dialog"
             onClick={onClose}
             className="ml-auto text-zinc-400 hover:text-zinc-100 p-1 rounded-lg hover:bg-zinc-800 transition-colors"
           >
@@ -56,8 +59,8 @@ export const ConflictModal = ({
             </div>
 
             {/* The Conflicting Class */}
-            <div className="p-3.5 rounded-xl border border-rose-900/60 bg-rose-950/20">
-              <span className="text-xs uppercase tracking-wider font-semibold text-rose-400 block mb-1">
+            <div className="p-3.5 rounded-xl border border-usc-gold/60 bg-usc-cardinal/20">
+              <span className="text-xs uppercase tracking-wider font-semibold text-usc-gold block mb-1">
                 ⚠️ Your Conflicting Class Block
               </span>
               <p className="text-sm font-semibold text-zinc-100">
@@ -65,7 +68,7 @@ export const ConflictModal = ({
               </p>
               <div className="flex items-center gap-4 text-xs text-zinc-400 mt-1">
                 <span className="flex items-center gap-1">
-                  <Clock className="w-3.5 h-3.5 text-rose-400" />
+                  <Clock className="w-3.5 h-3.5 text-usc-gold" />
                   {conflictingClass?.days.join(', ')} • {conflictingClass?.startTime} – {conflictingClass?.endTime}
                 </span>
                 <span className="flex items-center gap-1">
@@ -94,7 +97,7 @@ export const ConflictModal = ({
               onConfirmRsvp(event);
               onClose();
             }}
-            className="px-4 py-2 rounded-lg text-sm font-semibold bg-rose-600 hover:bg-rose-500 text-zinc-100 shadow-md transition-colors flex items-center gap-2"
+            className="px-4 py-2 rounded-lg text-sm font-semibold bg-usc-cardinal hover:bg-usc-cardinal-light text-zinc-100 shadow-md transition-colors flex items-center gap-2"
           >
             <CheckCircle className="w-4 h-4" />
             <span>RSVP Anyway</span>

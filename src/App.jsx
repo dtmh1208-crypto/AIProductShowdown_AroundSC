@@ -1,8 +1,9 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Header } from './components/Header';
-import { FiltersBar } from './components/FiltersBar';
-import { MapView } from './components/MapView';
-import { ListView } from './components/ListView';
+import { LandingPage } from './components/LandingPage';
+import { DiscoverPage } from './components/DiscoverPage';
+import { PageLink } from './components/PageLink';
+import { CATEGORIES } from './components/FiltersBar';
+import { resolvePage } from './utils/navigation';
 import { ConflictModal } from './components/ConflictModal';
 import { ScheduleModal } from './components/ScheduleModal';
 import { EventDetailModal } from './components/EventDetailModal';
@@ -11,14 +12,12 @@ import { VERIFIED_EVENT_RECORDS } from './data/verifiedEvents';
 import { buildShowcaseCollection } from './utils/eventAdapter';
 import { loadShowcaseRsvps, SHOWCASE_RSVP_KEY } from './utils/rsvpStorage';
 import { MOCK_STUDENT_SCHEDULE } from './data/mockSchedule';
-import { checkCalendarConflict, isEventLive, isEventToday } from './utils/calendar';
-import { ErrorBoundary } from './components/ErrorBoundary';
-import { AskAroundSC } from './components/AskAroundSC';
-import { parseDiscoveryRequest } from './utils/discoveryParser';
-import { matchesDiscovery } from './utils/discoveryMatching';
-import { Check, Sparkles, MapPin, Calendar, ExternalLink } from 'lucide-react';
+import { checkCalendarConflict, isEventLive } from './utils/calendar';
+import { filterEvents, getRsvpAction, updateRsvps } from './utils/eventDiscovery';
 
-export default function App() {
+export default function App({ initialPath } = {}) {
+  const [path, setPath] = useState(() => initialPath ?? globalThis.window?.location.pathname ?? '/');
+  const page = resolvePage(path);
   // Navigation & View Mode
   const [viewMode, setViewMode] = useState('map'); // 'map' | 'list'
 
@@ -30,6 +29,7 @@ export default function App() {
   const [hideConflicts, setHideConflicts] = useState(false);
 
   const [discovery, setDiscovery] = useState(null);
+  const [discoveryRequest, setDiscoveryRequest] = useState('');
   const [ignoreUnknownLocations, setIgnoreUnknownLocations] = useState(false);
 
   const [now, setNow] = useState(() => new Date());
@@ -68,76 +68,24 @@ export default function App() {
     return activeEvents.filter((e) => isEventLive(e.startTime, e.endTime, now)).length;
   }, [activeEvents, now]);
 
-  // Filter Events Pipeline
-  const filteredEvents = useMemo(() => {
-    return activeEvents.filter((event) => {
-      if (!matchesDiscovery(event, discovery, { ignoreLocations: ignoreUnknownLocations })) return false;
-      // 1. Text Search Query
-      if (searchQuery.trim()) {
-        const query = searchQuery.toLowerCase();
-        const matchesTitle = event.title.toLowerCase().includes(query);
-        const matchesDesc = event.description.toLowerCase().includes(query);
-        const matchesLoc =
-          event.location.name.toLowerCase().includes(query) ||
-          event.location.code.toLowerCase().includes(query) ||
-          event.room.toLowerCase().includes(query);
-        const matchesOrg = event.organizer.toLowerCase().includes(query);
-        const matchesTags = event.tags.some((t) => t.toLowerCase().includes(query));
-
-        if (!matchesTitle && !matchesDesc && !matchesLoc && !matchesOrg && !matchesTags) {
-          return false;
-        }
-      }
-
-      // 2. Category Filter
-      if (categoryFilter !== 'All' && event.category !== categoryFilter) {
-        return false;
-      }
-
-      // 3. Free Food Filter
-      if (freeFoodOnly && !event.freeFood) {
-        return false;
-      }
-
-      // 4. Calendar Conflict Filter
-      if (hideConflicts) {
-        const conflict = checkCalendarConflict(event, MOCK_STUDENT_SCHEDULE);
-        if (conflict.hasConflict) {
-          return false;
-        }
-      }
-
-      // 5. Time Status Filter
-      if (timeFilter === 'live') {
-        return isEventLive(event.startTime, event.endTime, now);
-      }
-      if (timeFilter === 'today') {
-        return isEventToday(event.startTime, now);
-      }
-      if (timeFilter === 'upcoming') {
-        const start = new Date(event.startTime);
-        return start > now;
-      }
-      if (timeFilter === 'rsvp') {
-        return rsvpIds.includes(event.id);
-      }
-
-      return true;
-    });
-  }, [searchQuery, categoryFilter, freeFoodOnly, hideConflicts, timeFilter, rsvpIds, discovery, ignoreUnknownLocations, activeEvents, now]);
+  const filteredEvents = useMemo(() => filterEvents(activeEvents, {
+    searchQuery, categoryFilter, freeFoodOnly, hideConflicts, timeFilter, rsvpIds,
+    discovery, ignoreUnknownLocations, schedule: MOCK_STUDENT_SCHEDULE,
+  }, now), [searchQuery, categoryFilter, freeFoodOnly, hideConflicts, timeFilter, rsvpIds,
+    discovery, ignoreUnknownLocations, activeEvents, now]);
 
   // Handle RSVP Click
   const handleRsvpClick = (event) => {
     // If already RSVP'd, allow toggling off or skip
-    if (rsvpIds.includes(event.id)) {
-      setRsvpIds((prev) => prev.filter((id) => id !== event.id));
+    const action = getRsvpAction(event, rsvpIds, MOCK_STUDENT_SCHEDULE);
+    if (action === 'remove') {
+      setRsvpIds((prev) => updateRsvps(prev, event.id, false));
       showToast(`Removed "${event.title}" from your schedule`);
       return;
     }
 
     // Check for conflict
-    const conflict = checkCalendarConflict(event, MOCK_STUDENT_SCHEDULE);
-    if (conflict.hasConflict) {
+    if (action === 'conflict') {
       // Open the Calendar Conflict Modal
       setPendingConflictEvent(event);
     } else {
@@ -147,143 +95,50 @@ export default function App() {
   };
 
   const confirmRsvp = (event) => {
-    setRsvpIds((prev) => prev.includes(event.id) ? prev : [...prev, event.id]);
+    setRsvpIds((prev) => updateRsvps(prev, event.id, true));
     showToast(`✓ Local RSVP saved for "${event.title}". Register with the organizer separately if required.`);
   };
 
+  // Page navigation does not create another discovery engine or discard its filter state.
+  useEffect(() => {
+    const syncRoute = () => {
+      setPath(window.location.pathname);
+      const category = new URLSearchParams(window.location.search).get('category');
+      if (CATEGORIES.includes(category)) { setCategoryFilter(category); setViewMode('list'); }
+      setSelectedDetailEvent(null); setPendingConflictEvent(null); setIsScheduleModalOpen(false);
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    };
+    const category = new URLSearchParams(window.location.search).get('category');
+    if (CATEGORIES.includes(category)) { setCategoryFilter(category); setViewMode('list'); }
+    window.addEventListener('popstate', syncRoute);
+    return () => window.removeEventListener('popstate', syncRoute);
+  }, []);
+
+  useEffect(() => {
+    document.title = page === 'discover' ? 'Discover Events — AroundSC' : page === 'home' ? 'AroundSC — Discover Campus Events' : 'Page Not Found — AroundSC';
+    document.getElementById('main-content')?.focus({ preventScroll: true });
+  }, [page]);
+
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-400 flex flex-col font-sans">
-      {/* Sticky Header with Backdrop Blur */}
-      <Header
-        viewMode={viewMode}
-        setViewMode={setViewMode}
-        liveCount={liveCount}
-        onOpenSchedule={() => setIsScheduleModalOpen(true)}
-        rsvpCount={activeEvents.filter((event) => rsvpIds.includes(event.id)).length}
-      />
+    <div id="top" className="aroundsc-app min-h-screen flex flex-col font-sans">
+      <a href="#main-content" className="pulse-skip-link">Skip to content</a>
+      {page === 'home' ? <LandingPage events={activeEvents} onSelectEvent={setSelectedDetailEvent} />
+        : page === 'discover' ? <DiscoverPage
+          viewMode={viewMode} setViewMode={setViewMode} liveCount={liveCount}
+          activeEvents={activeEvents} rsvpIds={rsvpIds} onOpenSchedule={() => setIsScheduleModalOpen(true)}
+          discovery={discovery} setDiscovery={setDiscovery}
+          discoveryRequest={discoveryRequest} setDiscoveryRequest={setDiscoveryRequest}
+          ignoreUnknownLocations={ignoreUnknownLocations} setIgnoreUnknownLocations={setIgnoreUnknownLocations}
+          filteredEvents={filteredEvents} setSelectedDetailEvent={setSelectedDetailEvent}
+          searchQuery={searchQuery} setSearchQuery={setSearchQuery} timeFilter={timeFilter} setTimeFilter={setTimeFilter}
+          categoryFilter={categoryFilter} setCategoryFilter={setCategoryFilter}
+          freeFoodOnly={freeFoodOnly} setFreeFoodOnly={setFreeFoodOnly}
+          hideConflicts={hideConflicts} setHideConflicts={setHideConflicts} handleRsvpClick={handleRsvpClick}
+        /> : <main id="main-content" tabIndex={-1} className="home-section home-not-found"><h1>That page isn’t around here.</h1><PageLink href="/">Back to AroundSC</PageLink></main>}
 
-      {/* Main Container constrained to max-w-5xl mx-auto */}
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
-        {/* Pitch / Hero Value Strip */}
-        <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div>
-            <span className="text-xs uppercase tracking-wider font-medium text-zinc-500">
-              Campus Intelligence
-            </span>
-            <h2 className="text-xl font-semibold text-zinc-100 mt-0.5">
-              USC Campus Event Discovery & Conflict Planner
-            </h2>
-            <p className="text-sm font-normal text-zinc-400 mt-1 max-w-2xl">
-              Find campus activities that fit your interests and free time. Conflicts use a mock class schedule; RSVPs are saved only in this browser.
-            </p>
-          </div>
-          <div className="flex items-center gap-3 shrink-0">
-            <button
-              onClick={() => {
-                setTimeFilter('live');
-                setViewMode('map');
-              }}
-              className="px-3.5 py-2 rounded-lg bg-usc-cardinal hover:bg-usc-cardinal-light text-zinc-100 text-xs font-semibold uppercase tracking-wider transition-colors shadow-sm flex items-center gap-2"
-            >
-              <span>See Happening Now</span>
-            </button>
-          </div>
-        </div>
-
-        <AskAroundSC
-          parsed={discovery}
-          ignoreLocations={ignoreUnknownLocations}
-          resultCount={filteredEvents.length}
-          onSearch={(request) => {
-            setDiscovery(parseDiscoveryRequest(request));
-            setIgnoreUnknownLocations(false);
-            setSelectedDetailEvent(null);
-          }}
-          onClear={() => { setDiscovery(null); setIgnoreUnknownLocations(false); }}
-          onIgnoreLocations={() => setIgnoreUnknownLocations(true)}
-        />
-
-        {/* Global Filters Bar */}
-        <FiltersBar
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-          timeFilter={timeFilter}
-          setTimeFilter={setTimeFilter}
-          categoryFilter={categoryFilter}
-          setCategoryFilter={setCategoryFilter}
-          freeFoodOnly={freeFoodOnly}
-          setFreeFoodOnly={setFreeFoodOnly}
-          hideConflicts={hideConflicts}
-          setHideConflicts={setHideConflicts}
-          totalMatching={filteredEvents.length}
-          liveCount={liveCount}
-        />
-
-        {filteredEvents.length === 0 && <p role="status" className="rounded-lg border border-zinc-800 p-3 text-sm text-zinc-300">
-          No matching events. Review the search interpretation and filters.
-        </p>}
-
-        {/* Active View: Map or List */}
-        <section className="pt-2">
-          {viewMode === 'map' ? (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xl font-semibold text-zinc-100">
-                  Interactive Campus Radar
-                </h3>
-                <span className="text-xs uppercase tracking-wider font-medium text-zinc-500">
-                  Click pins to view details & RSVP
-                </span>
-              </div>
-              <ErrorBoundary
-                onSwitchToList={() => setViewMode('list')}
-                customMessage="The campus map graphics encountered an issue on your device. You can view in List View or retry."
-              >
-                <MapView
-                  events={filteredEvents}
-                  schedule={MOCK_STUDENT_SCHEDULE}
-                  rsvpIds={rsvpIds}
-                  onRsvpClick={handleRsvpClick}
-                  onSelectEvent={(evt) => setSelectedDetailEvent(evt)}
-                  checkConflict={checkCalendarConflict}
-                />
-              </ErrorBoundary>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xl font-semibold text-zinc-100">
-                  Campus Events Directory
-                </h3>
-                <span className="text-xs uppercase tracking-wider font-medium text-zinc-500">
-                  Chronological listings
-                </span>
-              </div>
-              <ListView
-                discoveryActive={Boolean(discovery)}
-                events={filteredEvents}
-                schedule={MOCK_STUDENT_SCHEDULE}
-                rsvpIds={rsvpIds}
-                onRsvpClick={handleRsvpClick}
-                onSelectEvent={(evt) => setSelectedDetailEvent(evt)}
-                checkConflict={checkCalendarConflict}
-              />
-            </div>
-          )}
-        </section>
-      </main>
-
-      {/* Footer */}
-      <footer className="border-t border-zinc-800/80 bg-zinc-950 py-8 mt-12">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-zinc-500">
-          <div>
-            <span className="font-semibold text-zinc-400">aroundSC</span> • Designed for USC AI Product Showdown
-          </div>
-          <div className="flex items-center gap-4">
-            <span>Showcase prototype · Calendar export only</span>
-            <span>USC University Park Campus</span>
-          </div>
-        </div>
+      <footer className="pulse-footer">
+        <div><PageLink href="/" className="pulse-wordmark" aria-label="AroundSC home">around<span>SC</span>.</PageLink><p>Good things happen when you show up.</p></div>
+        <div className="pulse-footer-note"><span>AROUNDSC</span><p>Independent student showcase prototype.<br />Sample events + curated public listings. Not affiliated with USC.<br />Local RSVPs · Calendar export only.</p></div>
       </footer>
 
       {/* Modals */}
@@ -322,7 +177,7 @@ export default function App() {
       {/* Floating Toast Notification */}
       {toastMessage && (
         <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-4 py-3 rounded-xl bg-zinc-900 border border-zinc-700 text-zinc-100 shadow-2xl animate-in slide-in-from-bottom-5 duration-200">
-          <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></div>
+          <div className="w-2 h-2 rounded-full bg-usc-gold animate-pulse"></div>
           <span className="text-sm font-medium">{toastMessage}</span>
         </div>
       )}
